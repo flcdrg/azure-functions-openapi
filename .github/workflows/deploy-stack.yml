@@ -117,12 +117,16 @@ jobs:
         run: |
           dotnet publish ./src/func.csproj -c Release -o ./publish
 
+      - name: List publish files
+        run: ls -alR ./publish
+
       # Save publish artifacts for the next job
       - name: Upload publish artifacts
         uses: actions/upload-artifact@v7
         with:
           name: function-publish
           path: ./publish
+          include-hidden-files: true # Need this so '.azurefunctions' folder is included
 
   publish:
     name: Publish Function App
@@ -150,3 +154,4 @@ jobs:
         with:
           app-name: "func-openapi-australiaeast" # ${{ steps.deploy.outputs.functionAppName }}
           package: .
+          sku: flexconsumption
