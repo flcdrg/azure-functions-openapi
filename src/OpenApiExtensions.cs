@@ -1,9 +1,12 @@
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -38,6 +41,9 @@ public static class OpenApiFunctionsExtensions
         var assembly = Assembly.GetEntryAssembly();
         if (assembly is null) return Task.CompletedTask;
 
+        document.Paths ??= new OpenApiPaths();
+        var tagList = new List<OpenApiTag>();
+
         foreach (var type in assembly.GetTypes())
         {
             foreach (var method in type.GetMethods(
@@ -68,6 +74,19 @@ public static class OpenApiFunctionsExtensions
                 var tags = method.GetCustomAttribute<TagsAttribute>()?.Tags;
                 var consumesAttr = method.GetCustomAttribute<ConsumesAttribute>();
                 var producesAttrs = method.GetCustomAttributes<ProducesResponseTypeAttribute>().ToList();
+                var deprecatedAttr = method.GetCustomAttribute<ObsoleteAttribute>();
+
+                // Register tags in document
+                if (tags is not null)
+                {
+                    foreach (var tag in tags)
+                    {
+                        if (!tagList.Any(t => t.Name == tag))
+                        {
+                            tagList.Add(new OpenApiTag { Name = tag });
+                        }
+                    }
+                }
 
                 // Extract {paramName} and {paramName:constraint} placeholders from the route template
                 var routeParams = RouteParamRegex.Matches(route)
@@ -78,25 +97,30 @@ public static class OpenApiFunctionsExtensions
 
                 foreach (var httpMethodStr in httpTrigger.Methods ?? [])
                 {
-                    var responses = BuildResponses(producesAttrs);
+                    var responses = BuildResponses(producesAttrs, assembly);
+
+                    // Build parameters including route parameters with descriptions
+                    var parameters = BuildParameters(method, routeParams);
 
                     var operation = new OpenApiOperation
                     {
                         Summary = summary,
                         Description = description,
                         OperationId = endpointName,
-                        Tags = tags?.Select(t => new OpenApiTag { Name = t }).ToList(),
                         Responses = responses,
-                        Parameters = routeParams
-                            .Select(p => (OpenApiParameter)new OpenApiParameter
-                            {
-                                Name = p,
-                                In = ParameterLocation.Path,
-                                Required = true,
-                            })
-                            .ToList(),
+                        Deprecated = deprecatedAttr is not null,
+                        Parameters = parameters,
                     };
 
+                    // Add tags to operation as tag references
+                    if (tags is not null && tags.Any())
+                    {
+                        operation.Tags = new HashSet<OpenApiTagReference>(
+                            tags.Select(t => new OpenApiTagReference(t, document))
+                        );
+                    }
+
+                    // Add request body
                     if (consumesAttr is not null)
                     {
                         operation.RequestBody = new OpenApiRequestBody
@@ -110,15 +134,48 @@ public static class OpenApiFunctionsExtensions
                     pathItem.AddOperation(new HttpMethod(httpMethodStr.ToUpperInvariant()), operation);
                 }
 
-                document.Paths ??= new OpenApiPaths();
                 document.Paths[route] = pathItem;
             }
+        }
+
+        // Add collected tags to the document
+        if (tagList.Any())
+        {
+            document.Tags = new HashSet<OpenApiTag>(tagList);
         }
 
         return Task.CompletedTask;
     }
 
-    private static OpenApiResponses BuildResponses(List<ProducesResponseTypeAttribute> attrs)
+    private static List<IOpenApiParameter> BuildParameters(MethodInfo method, List<string> routeParams)
+    {
+        var parameters = new List<IOpenApiParameter>();
+
+        // Add route parameters with descriptions from method parameters
+        var methodParams = method.GetParameters();
+        foreach (var routeParam in routeParams)
+        {
+            var methodParam = methodParams.FirstOrDefault(p => 
+                p.Name?.Equals(routeParam, StringComparison.OrdinalIgnoreCase) == true &&
+                p.GetCustomAttribute<HttpTriggerAttribute>() is null);
+
+            var description = methodParam?.GetCustomAttribute<DescriptionAttribute>()?.Description;
+
+            parameters.Add(new OpenApiParameter
+            {
+                Name = routeParam,
+                In = ParameterLocation.Path,
+                Required = true,
+                Description = description
+            });
+        }
+
+        return parameters;
+    }
+
+    private static OpenApiResponses BuildResponses(
+        List<ProducesResponseTypeAttribute> attrs,
+        Assembly assembly)
     {
         var responses = new OpenApiResponses();
 
@@ -132,7 +189,9 @@ public static class OpenApiFunctionsExtensions
         {
             var statusCode = attr.StatusCode.ToString();
             var description = attr.Description ?? DefaultDescription(attr.StatusCode);
-            responses[statusCode] = new OpenApiResponse { Description = description };
+
+            var response = new OpenApiResponse { Description = description };
+            responses[statusCode] = response;
         }
 
         return responses;
