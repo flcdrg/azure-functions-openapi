@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:david.gardiner.net.au)",
+      "WebFetch(domain:dev.to)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/dotnet/aspnetcore/main/src/OpenApi/src/Extensions/OpenApiEndpointRouteBuilderExtensions.cs\")",
+      "WebFetch(domain:anthonygiretti.com)",
+      "WebFetch(domain:devkimchi.com)",
+      "Bash(dotnet build *)",
+      "Bash(powershell *)",
+      "Bash(mkdir -p /tmp/inspect)",
+      "Bash(cat)",
+      "Bash(dotnet run *)",
+      "Bash(xargs -I{} basename {})",
+      "Bash(grep -v \"^$\")"
+    ]
+  }
+}

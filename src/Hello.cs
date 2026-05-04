@@ -14,6 +14,7 @@ public class Hello
         _logger = logger;
     }
 
+    [EndpointSummary("This is a summary.")]
     [Function("Hello")]
     public IActionResult Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequest req)
     {
