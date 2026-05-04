@@ -136,6 +136,15 @@ jobs:
 
       - name: List files
         run: ls -alR
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: false
+
       - name: Publish
         uses: azure/functions-action@v1
         with:

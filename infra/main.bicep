@@ -17,13 +17,10 @@ param functionAppRuntime string = 'dotnet-isolated' //Defaults to .NET isolated 
 param functionAppRuntimeVersion string = '10.0' //Defaults to .NET 10.
 
 @description('The maximum scale-out instance count limit for the app.')
-@minValue(40)
-@maxValue(1000)
-param maximumInstanceCount int = 40
+param maximumInstanceCount int = 1
 
 @description('The memory size of instances used by the app.')
-@allowed([2048,4096])
-param instanceMemoryMB int = 2048
+param instanceMemoryMB int = 512
 
 @description('A unique token used for resource name generation.')
 @minLength(3)
