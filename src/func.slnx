@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="func/func.csproj" />
+  <Project Path="openapifunclib/openapifunclib.csproj" />
   <Project Path="tests/tests.csproj" />
 </Solution>

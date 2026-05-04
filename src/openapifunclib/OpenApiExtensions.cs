@@ -1,6 +1,4 @@
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
@@ -12,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi;
 
-namespace func;
+namespace Gardiner.Azure.Functions.Worker.Extensions.OpenApi;
 
 public static class OpenApiFunctionsExtensions
 {
@@ -81,7 +79,7 @@ public static class OpenApiFunctionsExtensions
                 {
                     foreach (var tag in tags)
                     {
-                        if (!tagList.Any(t => t.Name == tag))
+                        if (tagList.All(t => t.Name != tag))
                         {
                             tagList.Add(new OpenApiTag { Name = tag });
                         }

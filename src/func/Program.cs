@@ -1,4 +1,4 @@
-using func;
+using Gardiner.Azure.Functions.Worker.Extensions.OpenApi;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
