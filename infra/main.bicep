@@ -14,8 +14,7 @@ param location string = resourceGroup().location
 param functionAppRuntime string = 'dotnet-isolated' //Defaults to .NET isolated worker
 
 @description('Target language version used by the function app.')
-@allowed(['3.10','3.11', '7.4', '8.0', '9.0', '10', '11', '17', '20'])
-param functionAppRuntimeVersion string = '10' //Defaults to .NET 10.
+param functionAppRuntimeVersion string = '10.0' //Defaults to .NET 10.
 
 @description('The maximum scale-out instance count limit for the app.')
 @minValue(40)
