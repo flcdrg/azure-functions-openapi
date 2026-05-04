@@ -1,6 +1,8 @@
 using System.Net.Http;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +27,9 @@ public static class OpenApiFunctionsExtensions
         return builder;
     }
 
+    private static readonly Regex RouteParamRegex =
+        new(@"\{([^:}]+)(?::[^}]*)?\}", RegexOptions.Compiled);
+
     private static Task AddHttpTriggerPaths(
         OpenApiDocument document,
         OpenApiDocumentTransformerContext context,
@@ -42,6 +47,10 @@ public static class OpenApiFunctionsExtensions
                 var functionAttr = method.GetCustomAttribute<FunctionAttribute>();
                 if (functionAttr is null) continue;
 
+                // Honour [ApiExplorerSettings(IgnoreApi = true)]
+                var explorerSettings = method.GetCustomAttribute<ApiExplorerSettingsAttribute>();
+                if (explorerSettings?.IgnoreApi == true) continue;
+
                 var httpTrigger = method.GetParameters()
                     .Select(p => p.GetCustomAttribute<HttpTriggerAttribute>())
                     .FirstOrDefault(a => a is not null);
@@ -52,23 +61,53 @@ public static class OpenApiFunctionsExtensions
                     ? $"/{httpTrigger.Route.TrimStart('/')}"
                     : $"/api/{functionAttr.Name}";
 
-                // Honour standard ASP.NET Core endpoint metadata attributes.
+                // Collect endpoint metadata attributes
                 var summary = method.GetCustomAttribute<EndpointSummaryAttribute>()?.Summary;
                 var description = method.GetCustomAttribute<EndpointDescriptionAttribute>()?.Description;
+                var endpointName = method.GetCustomAttribute<EndpointNameAttribute>()?.EndpointName;
+                var tags = method.GetCustomAttribute<TagsAttribute>()?.Tags;
+                var consumesAttr = method.GetCustomAttribute<ConsumesAttribute>();
+                var producesAttrs = method.GetCustomAttributes<ProducesResponseTypeAttribute>().ToList();
+
+                // Extract {paramName} and {paramName:constraint} placeholders from the route template
+                var routeParams = RouteParamRegex.Matches(route)
+                    .Select(m => m.Groups[1].Value)
+                    .ToList();
 
                 var pathItem = new OpenApiPathItem();
 
                 foreach (var httpMethodStr in httpTrigger.Methods ?? [])
                 {
-                    pathItem.AddOperation(new HttpMethod(httpMethodStr.ToUpperInvariant()), new OpenApiOperation
+                    var responses = BuildResponses(producesAttrs);
+
+                    var operation = new OpenApiOperation
                     {
                         Summary = summary,
                         Description = description,
-                        Responses = new OpenApiResponses
+                        OperationId = endpointName,
+                        Tags = tags?.Select(t => new OpenApiTag { Name = t }).ToList(),
+                        Responses = responses,
+                        Parameters = routeParams
+                            .Select(p => (OpenApiParameter)new OpenApiParameter
+                            {
+                                Name = p,
+                                In = ParameterLocation.Path,
+                                Required = true,
+                            })
+                            .ToList(),
+                    };
+
+                    if (consumesAttr is not null)
+                    {
+                        operation.RequestBody = new OpenApiRequestBody
                         {
-                            { "200", new OpenApiResponse { Description = "Success" } }
-                        }
-                    });
+                            Required = true,
+                            Content = consumesAttr.ContentTypes
+                                .ToDictionary(ct => ct, _ => new OpenApiMediaType()),
+                        };
+                    }
+
+                    pathItem.AddOperation(new HttpMethod(httpMethodStr.ToUpperInvariant()), operation);
                 }
 
                 document.Paths ??= new OpenApiPaths();
@@ -78,6 +117,41 @@ public static class OpenApiFunctionsExtensions
 
         return Task.CompletedTask;
     }
+
+    private static OpenApiResponses BuildResponses(List<ProducesResponseTypeAttribute> attrs)
+    {
+        var responses = new OpenApiResponses();
+
+        if (attrs.Count == 0)
+        {
+            responses["200"] = new OpenApiResponse { Description = "Success" };
+            return responses;
+        }
+
+        foreach (var attr in attrs)
+        {
+            var statusCode = attr.StatusCode.ToString();
+            var description = attr.Description ?? DefaultDescription(attr.StatusCode);
+            responses[statusCode] = new OpenApiResponse { Description = description };
+        }
+
+        return responses;
+    }
+
+    private static string DefaultDescription(int statusCode) => statusCode switch
+    {
+        200 => "Success",
+        201 => "Created",
+        204 => "No Content",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        409 => "Conflict",
+        422 => "Unprocessable Entity",
+        500 => "Internal Server Error",
+        _ => statusCode.ToString(),
+    };
 }
 
 /// <summary>
