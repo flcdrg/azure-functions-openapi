@@ -8,7 +8,7 @@ namespace Gardiner.Azure.Functions.Worker.Extensions.OpenApi;
 /// <c>OpenApiDocumentProvider</c> implementation that <c>AddOpenApi()</c> registers, both of
 /// which live in <c>Microsoft.AspNetCore.OpenApi.dll</c>.
 /// </summary>
-internal static class OpenApiDocumentAccessor
+public static class OpenApiDocumentAccessor
 {
     private static readonly Lazy<ResolvedProvider> Resolved = new(Resolve);
 

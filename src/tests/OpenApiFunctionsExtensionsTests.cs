@@ -1,7 +1,5 @@
 ﻿using Gardiner.Azure.Functions.Worker.Extensions.OpenApi;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Moq;
 
 namespace tests;
 
@@ -11,15 +9,13 @@ public class OpenApiFunctionsExtensionsTests
     public void MapOpenApi_WhenCalled_ReturnsBuilder()
     {
         // Arrange
-        var mockServices = new Mock<IServiceCollection>();
-        var mockBuilder = new Mock<IHostApplicationBuilder>();
-        mockBuilder.Setup(b => b.Services).Returns(mockServices.Object);
+        var builder = TestBuilderHelper.CreateBuilder();
 
         // Act
-        var result = mockBuilder.Object.MapOpenApi();
+        var result = builder.MapOpenApi();
 
         // Assert
-        Assert.Same(mockBuilder.Object, result);
+        Assert.Same(builder, result);
     }
 
     [Fact]
@@ -27,11 +23,10 @@ public class OpenApiFunctionsExtensionsTests
     {
         // Arrange
         var services = new ServiceCollection();
-        var mockBuilder = new Mock<IHostApplicationBuilder>();
-        mockBuilder.Setup(b => b.Services).Returns(services);
+        var builder = TestBuilderHelper.CreateBuilder(services);
 
         // Act
-        mockBuilder.Object.MapOpenApi();
+        builder.MapOpenApi();
 
         // Assert
         Assert.Contains(services, sd => 
@@ -44,16 +39,15 @@ public class OpenApiFunctionsExtensionsTests
     {
         // Arrange
         var services = new ServiceCollection();
-        var mockBuilder = new Mock<IHostApplicationBuilder>();
-        mockBuilder.Setup(b => b.Services).Returns(services);
+        var builder = TestBuilderHelper.CreateBuilder(services);
 
         // Act
-        var result1 = mockBuilder.Object.MapOpenApi();
-        var result2 = mockBuilder.Object.MapOpenApi();
+        var result1 = builder.MapOpenApi();
+        var result2 = builder.MapOpenApi();
 
         // Assert
-        Assert.Same(mockBuilder.Object, result1);
-        Assert.Same(mockBuilder.Object, result2);
+        Assert.Same(builder, result1);
+        Assert.Same(builder, result2);
     }
 
     [Fact]
@@ -61,11 +55,10 @@ public class OpenApiFunctionsExtensionsTests
     {
         // Arrange
         var services = new ServiceCollection();
-        var mockBuilder = new Mock<IHostApplicationBuilder>();
-        mockBuilder.Setup(b => b.Services).Returns(services);
+        var builder = TestBuilderHelper.CreateBuilder(services);
 
         // Act
-        mockBuilder.Object.MapOpenApi();
+        builder.MapOpenApi();
 
         // Assert
         Assert.NotEmpty(services);
