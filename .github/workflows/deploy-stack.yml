@@ -115,7 +115,7 @@ jobs:
 
       - name: .NET Publish Function App
         run: |
-          dotnet publish ./src/func.csproj -c Release -o ./publish
+          dotnet publish ./src/func/func.csproj -c Release -o ./publish
 
       - name: List publish files
         run: ls -alR ./publish
